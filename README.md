@@ -1,0 +1,2 @@
+# FriendBookmarkApp
+Bookmarkapp for FriendOS
