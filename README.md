@@ -8,3 +8,4 @@ Bookmarkapp for FriendOS
  - Logic for deleting bookmarks
  - Logic for editing bookmarks
  - Code cleanup
+ - Styling(CSS)
