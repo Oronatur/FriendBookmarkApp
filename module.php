@@ -3,104 +3,103 @@
 global $Logger,$args,$SqlDatabase,$User;
 
 require_once("php/friend.php");
-$Logger->log("Loaded bookmarkapp 1.");
+$Logger->log("Loaded bookmarkapp.");
 $SqlDatabase->SelectDatabase('friend');
 
 
 if($args->command == "init")
-	{
-		$Logger->log("Loaded bookmarkapp 2.");
-		$tableCheck = $SqlDatabase->query("SHOW TABLES LIKE 'BookmarkApp'");
-		$tableCheck = mysqli_num_rows($tableCheck);
-		$Logger->log("Loaded bookmarkapp 3.");
-		if($tableCheck != 1)
-		{
-			$Logger->log("Bookmarkapp if1");
-			$Logger->log(var_dump($SqlDatabase));
-			$SqlDatabase->query("CREATE TABLE BookmarkApp 
-				(ID bigint(20) NOT NULL AUTO_INCREMENT, 
-				UserID bigint(20) NOT NULL, 
-				Url varchar(255) NOT NULL, 
-				PRIMARY KEY (ID))
-			");
-			
-			$Logger->log("Bookmarkapp after query 1.");
-			die("created<!--separate-->{\"response\":\"created table BookmarkApp\"}");
-		}
-		else
-		{
-			$Logger->log("Bookmarkapp else1");
-			$bookmarkArray = $SqlDatabase->fetchArray("SELECT * FROM BookmarkApp WHERE UserID = '" . $User->ID .  "'");
-			$Logger->log("Loaded bookmarks");
+        {
+                //check if table exists (i.e app has run before), if not, create it.
+                $tableCheck = $SqlDatabase->query("SHOW TABLES LIKE 'BookmarkApp'");
+                $tableCheck = mysqli_num_rows($tableCheck);
 
-			die("ok<!--separate-->" . json_encode($bookmarkArray));
-		}
+                if($tableCheck != 1)
+                        {
+                                $SqlDatabase->query("CREATE TABLE BookmarkApp 
+                                        (ID bigint(20) NOT NULL AUTO_INCREMENT, 
+                                        UserID bigint(20) NOT NULL, 
+                                        Url varchar(255) NOT NULL, 
+                                        PRIMARY KEY (ID))
+                                ");
+				
+				$Logger->log("Created table Bookmarkapp.");
+                                die("created<!--separate-->{\"response\":\"created table BookmarkApp\"}");
+                        }
+                //load bookmarks if the table exists.
+                if($tableCheck == 1)
+                        {
+                                $bookmarkArray = $SqlDatabase->fetchArray("SELECT * FROM BookmarkApp WHERE UserID = '" . $User->ID .  "'");
+                                $Logger->log("Loaded bookmarks");
 
+                                die("ok<!--separate-->" . json_encode($bookmarkArray));
+                        }
+                //if this one happens, something has gone very wrong.. check the database.
+                else
+                        {
+                                $Logger->log("Error initializing Bookmark App.");
+                                die("initerror<!--separate-->{\"response\":\"Error initializing Bookmark App\"}");
+                        }
+        }
+//saving or creating a bookmark
+elseif($args->command == "save")
+        {
+                $id = mysqli_real_escape_string($SqlDatabase->_link,$args->args->id);
+                $url = mysqli_real_escape_string($SqlDatabase->_link,$args->args->url);
 
-	}
-die("fail<!--separate-->{\"response\":\"no known command\"}");
-/*
-              
-          		$query = "SELECT * FROM 'BookmarkApp' WHERE 'UserID' = '" . $User->ID . "'";
-				$bookmarkArray = $SqlDatabase->FetchArray($query);
-				$Logger->log("Loaded bookmarks (if any exist)");
-				return $bookmarkArray;
-				die("Loaded table BookmarkApp.";
-			}
-	
-	}
-else
-	{
-		$Logger->log("init error");
-	}
+                $Logger->log("url and id are: ");
+                $Logger->log($url);
+                $Logger->log($id);
 
+                //id exists, so update it. Make sure we got a string to update it with.
+                if($id != null AND $url != null)
+                        {
+                                $sql = "SELECT * FROM BookmarkApp WHERE ID = '" . $id  . "' AND UserID = '" . $User->ID  . "'";
+                                $result = mysqli_num_rows($SqlDatabase->query($sql));
 
+                                if($result == 1)
+                                        {
+                                                $sql = "UPDATE BookmarkApp SET Url = '" . $url  . "' WHERE ID = '" . $id  . "' AND UserID ='" . $User->ID  . "'";
+                                                $SqlDatabase->query($sql);
+                                                die("savesuccess<!--separate-->{\"response\":\"Updated bookmark.\"}");
+                                        }
+                                else
+                                        {
+                                                $Logger->log("MySQL error when saving bookmark. ");
+                                                die("saveerror<!--separate-->{\"response\":\"MySQL error when saving bookmark.\"}");
+                                        }
+                        }
+                //no id, create a bookmark
+                elseif($id == null AND $url != null)
+                        {
+                                $sql = "INSERT INTO BookmarkApp (Url, UserID) VALUES ('" . $url  . "','" . $User->ID  . "')";
+                                $SqlDatabase->query($sql);
+				die("savesuccess<!--separate-->{\"response\":\"Created bookmark.\"}");
+                        }
+                //something went wrong, most likely no content in $url
+                else
+                        {
+                                $Logger->log("Saving error/Bookmark App.");
+                                die("saveerror<!--separate-->{\"response\":\"Error when saving bookmark.\"}");
+                        }
+        }
+//delete a bookmark
+elseif($args->command == "delete")
+        {
+                $id = mysqli_real_escape_string($SqlDatabase->_link,$args->args->id);
+                $sql = "SELECT * FROM BookmarkApp WHERE ID = '" . $id . "' AND UserID = '" . $User->ID . "'";
+                $result = mysqli_num_rows($SqlDatabase->query($sql));
 
-//check if entry exists: update if yes, create if no
-if($args->command == "save")
-	{
-		$sql = "SELECT * FROM 'bookmarkapp' WHERE 'ID' = '" . $id . "' AND 'UserID' = '" . $User->ID  .  "'";
-		$result = mysql_num_rows($SqlDatabase->query($sql));
+                if($result == 1)
+                        {
+                                $sql = "DELETE FROM BookmarkApp where ID = '" . $id . "' AND UserID = '" . $User->ID . "'";
+                                $SqlDatabase->query($sql);
+                                die("deletesuccess<!--separate-->{\"response\":\"Deleted bookmark.\"}");
+                        }
+                else
+                        {
+                                $Logger->log("Deleting error/Bookmark App");
+                                die("deleteerror<!--separate-->{\"response\":\"Error when deleting bookmark.\"}");
+                }
+        }
 
-		if($result != 0)
-			{
-				$sql = "INSERT INTO 'bookmarkapp' ('Url', 'UserID') VALUES ('" . $url  . "','" . $User->ID  . "'";	
-				$Logger->log("Creating bookmark.");
-			}
-		elseif($result == 1)
-			{
-				$sql = "UPDATE 'bookmarkapp' SET 'Url' = '". $url . "' WHERE 'ID' = '" . $id . "' AND 'UserID' ='" . $User->ID . "'";
-				$Logger->log("Updating bookmark " . $id;
-			}
-		else
-			{
-				$Logger->log("MySQL error when saving bookmark. " . $e->getMessage());
-				die();
-			}
-
-		$SqlDatabase->query($sql);
-		return;
-	}
-
-if($args->command == "delete")
-	{
-		$sql = "SELECT * FROM 'BookmarkApp' WHERE 'ID' = '" . $id . "' AND 'UserID' = '" . $User->ID . "'";
-		$result = mysql_num_rows($SqlDatabase->query($sql);
-
-		if($result == 1)
-			{
-			i	$sql = "DELETE FROM 'BookmarkApp' where 'ID' = '" . $id . "' AND 'UserID' = '" - $User->ID . "'";
-				$SqlDatabase->query($sql);
-				$Logger->log("Deleted bookmark " . $id);
-			}
-		else
-			{
-				$Logger->log("MySQL error" . $e->getMessage());
-				die();
-			}
-
-		return;
-
-	}
-*/
-?>
+?>                                                                                                                                                     1,5        
